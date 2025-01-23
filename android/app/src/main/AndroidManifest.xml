@@ -1,12 +1,13 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
     package="com.example.indago_app"
     xmlns:tools="http://schemas.android.com/tools">
+    <uses-sdk tools:overrideLibrary="com.example.indago_app" />
 
     <uses-permission android:name="android.permission.PACKAGE_USAGE_STATS" 
     tools:ignore="ProtectedPermissions"/>
     
     <application
-        android:label="indago"
+        android:label="Indago"
         android:name="${applicationName}"
         android:icon="@mipmap/ic_launcher">
         <activity

@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import 'package:firebase_analytics/firebase_analytics.dart';
+import 'package:usage_stats/usage_stats.dart';
 
 class HomepageWidget extends StatefulWidget {
   const HomepageWidget({super.key});
@@ -12,6 +14,23 @@ class _HomepageWidgetState extends State<HomepageWidget> {
   double sliderValue1 = 55;
   double sliderValue2 = 29;
   double sliderValue3 = 16;
+
+  // Initialize FirebaseAnalytics
+  FirebaseAnalytics analytics = FirebaseAnalytics.instance;
+
+    @override
+  void initState() {
+    super.initState();
+    requestUsageStatsPermission(); // Call the permission function here
+  }
+
+  // Function to request permission for usage stats
+  Future<void> requestUsageStatsPermission() async {
+  bool? granted = await UsageStats.checkUsagePermission();
+  if (granted != true) {
+    await UsageStats.grantUsagePermission();
+  }
+}
 
   @override
   Widget build(BuildContext context) {
@@ -31,7 +50,10 @@ class _HomepageWidgetState extends State<HomepageWidget> {
                 color: Color(0xFF0F1113),
                 size: 30,
               ),
-              onPressed: () => Navigator.pushNamed(context, 'MenuPage'),
+              onPressed: () {
+                analytics.logEvent(name: 'open_menu'); // Log event for opening the menu
+                Navigator.pushNamed(context, 'MenuPage');
+              },
             ),
             title: const Text(
               'Indago',
@@ -69,6 +91,9 @@ class _HomepageWidgetState extends State<HomepageWidget> {
   }
 
   Widget _buildTodaysScreenTimeCard() {
+    // Log an event when the "Today's Screen Time" card is viewed
+    analytics.logEvent(name: 'view_daily_screen_time');
+
     return Card(
       clipBehavior: Clip.antiAliasWithSaveLayer,
       elevation: 2,
@@ -163,6 +188,9 @@ class _HomepageWidgetState extends State<HomepageWidget> {
   }
 
   Widget _buildMostUsedAppsCard(BuildContext context) {
+     // Log an event when the "Most Used Apps" card is viewed
+    analytics.logEvent(name: 'view_most_used_apps');
+
     return Card(
       clipBehavior: Clip.antiAliasWithSaveLayer,
       elevation: 2,
@@ -257,6 +285,9 @@ class _HomepageWidgetState extends State<HomepageWidget> {
   }
 
   Widget _buildAppCategoriesCard(BuildContext context, double sliderValue1, double sliderValue2, double sliderValue3) {
+    // Log an event when the "App Categories" card is viewed
+    analytics.logEvent(name: 'view_app_categories');
+    
     return Card(
       clipBehavior: Clip.antiAliasWithSaveLayer,
       elevation: 2,

@@ -1,5 +1,9 @@
 
 import 'package:flutter/material.dart';
+import 'package:firebase_analytics/firebase_analytics.dart';
+import 'package:indago_app/widget/appbar.dart';
+import 'package:usage_stats/usage_stats.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 
 class AppUsageDetailsWidget extends StatefulWidget {
   const AppUsageDetailsWidget({super.key});
@@ -10,9 +14,71 @@ class AppUsageDetailsWidget extends StatefulWidget {
 
 class _AppUsageDetailsWidgetState extends State<AppUsageDetailsWidget> {
   final scaffoldKey = GlobalKey<ScaffoldState>();
-  final double _sliderValue1 = 75;
-  final double _sliderValue2 = 45;
-  final double _sliderValue3 = 55;
+  //final double _sliderValue1 = 75;
+  //final double _sliderValue2 = 45;
+  //final double _sliderValue3 = 55;
+
+   // Initialize FirebaseAnalytics
+  FirebaseAnalytics analytics = FirebaseAnalytics.instance;
+
+    Future<void> storeUsageData(List<EventUsageInfo> events) async {
+    try {
+      FirebaseFirestore firestore = FirebaseFirestore.instance;
+      CollectionReference usageCollection = firestore.collection('app_usage'); // Choose a collection name
+
+      for (var event in events) {
+        // Store each event as a document in the collection
+        await usageCollection.add({
+          'packageName': event.packageName,
+          'totalTimeInForeground': event.totalTimeInForeground?.inMinutes,  // Store usage in minutes
+          'eventTime': event.timeStamp,
+          // Add other relevant data as needed
+        });
+      }
+
+      print('Usage data stored successfully!');
+    } catch (e) {
+      print('Error storing usage data: $e');
+      // Handle the error appropriately (e.g., show an error message)
+    }
+  }
+
+    // Function to fetch usage data
+  Future<List<EventUsageInfo>> fetchUsageData() async {
+    try {
+      DateTime endDate = DateTime.now();
+      DateTime startDate = endDate.subtract(const Duration(days: 1));
+      List<EventUsageInfo> events = await UsageStats.queryEvents(startDate, endDate);
+
+      // Store the fetched data in Firestore
+      await storeUsageData(events);
+
+      return events;
+    } on Exception catch (exception) {
+      print('Error fetching usage data: $exception');
+      rethrow; // Or handle the error as needed
+    }
+  }
+
+   // Example function to log an app open event
+  void _logAppOpenEvent(String appName) async {
+    await analytics.logEvent(
+      name: 'app_open',
+      parameters: {'app_name': appName},
+    );
+  }
+
+  // Example function to log an app close event
+  void _logAppCloseEvent(String appName) async {
+    await analytics.logEvent(
+      name: 'app_close',
+      parameters: {'app_name': appName},
+    );
+  }
+
+  // ... (Your existing helper functions: _buildTotalScreenTimeSection, 
+  // _buildTopAppsSection, _buildUsageByCategorySection, _buildInsightsSection, 
+  // _buildAppUsageRow, _buildCategoryChip, _buildInsightRow, fetchUsageData
 
   @override
   Widget build(BuildContext context) {
@@ -21,30 +87,7 @@ class _AppUsageDetailsWidgetState extends State<AppUsageDetailsWidget> {
       child: Scaffold(
         key: scaffoldKey,
         backgroundColor: const Color(0xFFF0F5F9),
-        appBar: AppBar(
-          backgroundColor: Colors.white,
-          automaticallyImplyLeading: true,
-          leading: IconButton(
-            icon: const Icon(
-              Icons.arrow_back,
-              color: Color(0xFF101213),
-              size: 24,
-            ),
-            onPressed: () => Navigator.pop(context),
-          ),
-          title: const Text(
-            'Indago',
-            style: TextStyle(
-              color: Color(0xFF101213),
-              fontWeight: FontWeight.w600,
-              fontSize: 24,
-              letterSpacing: 0.0,
-            ),
-          ),
-          actions: const [],
-          centerTitle: true,
-          elevation: 10,
-        ),
+        appBar: MinimalistAppBar(title: 'App Usage Insights'),
         body: SingleChildScrollView(
           child: Column(
             mainAxisSize: MainAxisSize.min,
@@ -196,7 +239,7 @@ class _AppUsageDetailsWidgetState extends State<AppUsageDetailsWidget> {
               ),
               const SizedBox(height: 16),
               const Text(
-                '32h 45m',
+                '3h 45m',
                 style: TextStyle(
                   color: Color(0xFF2797FF),
                   fontSize: 45,
@@ -218,66 +261,65 @@ class _AppUsageDetailsWidgetState extends State<AppUsageDetailsWidget> {
     );
   }
 
-  Widget _buildTopAppsSection(BuildContext context) {
-    return Material(
-      color: Colors.transparent,
-      elevation: 2,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-      child: Container(
-        width: MediaQuery.of(context).size.width,
-        decoration: BoxDecoration(
-          color: const Color(0xFFF0F5F9),
-          borderRadius: BorderRadius.circular(16),
-        ),
-        child: Padding(
-          padding: const EdgeInsetsDirectional.fromSTEB(20, 20, 20, 20),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              const Text(
-                'Top Apps by Usage',
-                style: TextStyle(
-                  color: Color(0xFF161C24),
-                  fontSize: 24,
-                  fontWeight: FontWeight.bold,
-                ),
+Widget _buildTopAppsSection(BuildContext context) {
+  return FutureBuilder<List<EventUsageInfo>>(
+    future: fetchUsageData(),
+    builder: (context, snapshot) {
+      if (snapshot.connectionState == ConnectionState.waiting) {
+        return  const CircularProgressIndicator();
+      } else if (snapshot.hasError) {
+        return Text('Error: ${snapshot.error}');
+      } else {
+        List<EventUsageInfo> events = snapshot.data!;
+
+
+        // Display the top apps using the fetched data
+        return Material(
+          color: Colors.transparent,
+          elevation: 2,
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+          child: Container(
+            width: MediaQuery.of(context).size.width,
+            decoration: BoxDecoration(
+              color: const Color(0xFFF0F5F9),
+              borderRadius: BorderRadius.circular(16),
+            ),
+            child: Padding(
+              padding: const EdgeInsetsDirectional.fromSTEB(20, 20, 20, 20),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  const Text(
+                    'Top Apps by Usage',
+                    style: TextStyle(
+                      color: Color(0xFF161C24),
+                      fontSize: 24,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+                  ListView.builder(
+                    shrinkWrap: true,
+                    physics: const NeverScrollableScrollPhysics(),
+                    itemCount: events.length,
+                    itemBuilder: (context, index) {
+                      EventUsageInfo event = events[index];
+                      return ListTile(
+                        leading: const Icon(Icons.apps, color: Colors.blue),
+                        title: Text(event.packageName ?? 'Unknown App'),
+                        trailing: Text('${event.totalTimeInForeground?.inMinutes ?? 0}m', style: const TextStyle(color: Colors.grey, fontSize: 14)),
+                      );
+                    },
+                  ),
+                ],
               ),
-              const SizedBox(height: 16),
-              _buildAppUsageRow(
-                context,
-                const Color(0xFF4B39EF),
-                Icons.facebook,
-                'Facebook',
-                'Social',
-                '4h 32m',
-                _sliderValue1,
-              ),
-              const SizedBox(height: 16),
-              _buildAppUsageRow(
-                context,
-                const Color(0xFF39D2C0),
-                Icons.mail_outline,
-                'Gmail',
-                'Productivity',
-                '2h 45m',
-                _sliderValue2,
-              ),
-              const SizedBox(height: 16),
-              _buildAppUsageRow(
-                context,
-                const Color(0xFFEE8B60),
-                Icons.youtube_searched_for,
-                'YouTube',
-                'Entertainment',
-                '3h 18m',
-                _sliderValue3,
-              ),
-            ],
+            ),
           ),
-        ),
-      ),
-    );
-  }
+        );
+      }
+    },
+  );
+}
 
   Widget _buildAppUsageRow(
     BuildContext context,
@@ -455,5 +497,9 @@ class _AppUsageDetailsWidgetState extends State<AppUsageDetailsWidget> {
       ],
     );
   }
+}
+
+extension on EventUsageInfo {
+  get totalTimeInForeground => null;
 }
 
